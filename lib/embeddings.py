@@ -25,7 +25,7 @@ def embed_batch(texts: list[str]) -> list[list[float]]:
     try:
         if hasattr(client, "embed"):
             response = client.embed(model=model, input=texts)
-            vectors = [list(v) for v in response["embeddings"]]
+            vectors = [list(v) for v in response.embeddings]
         else:
             vectors = [
                 list(client.embeddings(model=model, prompt=text)["embedding"])
