@@ -1,0 +1,11 @@
+# Vector store data (keep the directory, ignore its contents)
+store/chroma/*
+!store/chroma/.gitkeep
+
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
