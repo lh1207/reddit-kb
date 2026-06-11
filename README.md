@@ -4,8 +4,8 @@ MCP server that turns your saved Reddit content into a searchable knowledge base
 Saved posts/comments are embedded with `nomic-embed-text` (via Ollama) and stored
 in ChromaDB; tools are exposed over MCP with fastmcp.
 
-> **Status:** all four tools are implemented. Remaining: Docker packaging and
-> the first full ingest run.
+> **Status:** all four tools are implemented and the server is packaged for
+> Docker. Remaining: the first full ingest run.
 
 ## Authentication
 
@@ -53,7 +53,38 @@ and backfill from the CSV it provides (not yet automated).
    python server.py
    ```
 
-   Or with Docker: `docker compose -f docker/docker-compose.yml up`.
+   Or run it in Docker — see below.
+
+## Docker
+
+Build and start the container (from the repo root):
+
+```sh
+docker compose -f docker/docker-compose.yml up --build -d
+```
+
+> **Ollama caveat:** inside the container, `localhost` is the container itself,
+> so the bare-metal default `OLLAMA_BASE_URL=http://localhost:11434` will not
+> reach the Ollama instance on your host. Before starting, set
+> `OLLAMA_BASE_URL` in `.env` to your host LAN IP or Tailscale IP, e.g.
+> `http://192.168.1.x:11434`. Credentials and config arrive only via `.env` at
+> runtime — nothing is baked into the image.
+
+Ingest your saved items from inside the container:
+
+```sh
+docker compose -f docker/docker-compose.yml exec reddit-kb \
+  python -c "from tools.ingest import ingest_saved; print(ingest_saved())"
+```
+
+Stop the container:
+
+```sh
+docker compose -f docker/docker-compose.yml down
+```
+
+The vector store is bind-mounted at `./store/chroma`, so ingested data
+persists on the host across restarts and rebuilds.
 
 ## Build order
 
