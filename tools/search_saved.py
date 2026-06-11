@@ -8,16 +8,16 @@ from lib.embeddings import embed
 
 def search_saved(query: str, limit: int = 10) -> list[dict]:
     """Embed the query and return the top matching saved posts/comments from ChromaDB, closest first."""
-    try:
-        query_vector = embed(query)
-    except Exception as exc:
-        raise RuntimeError(f"embedding failed: {exc}") from exc
-
     collection = get_collection()
 
     n_results = min(limit, collection.count())
     if n_results < 1:
         return []
+
+    try:
+        query_vector = embed(query)
+    except Exception as exc:
+        raise RuntimeError(f"embedding failed: {exc}") from exc
 
     response = collection.query(
         query_embeddings=[query_vector],
