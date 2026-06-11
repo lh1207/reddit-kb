@@ -4,8 +4,8 @@ MCP server that turns your saved Reddit content into a searchable knowledge base
 Saved posts/comments are embedded with `nomic-embed-text` (via Ollama) and stored
 in ChromaDB; tools are exposed over MCP with fastmcp.
 
-> **Status:** `ingest_saved` is implemented; `search_saved`, `fetch_reddit_thread`,
-> and `search_reddit` are registered but still raise `NotImplementedError`.
+> **Status:** all four tools are implemented. Remaining: Docker packaging and
+> the first full ingest run.
 
 ## Authentication
 
@@ -63,5 +63,5 @@ Fill in the stubs in this order — each step builds on the previous:
 2. `lib/embeddings.py` — `embed` / `embed_batch` against the Ollama API ✅
 3. `lib/chroma.py` — persistent collection at `CHROMA_PATH` ✅
 4. `tools/ingest.py` — saved items → embeddings → ChromaDB ✅
-5. `tools/search_saved.py` — query embedding → ChromaDB similarity search
-6. `tools/fetch_live.py` — live thread fetch + live Reddit search
+5. `tools/search_saved.py` — query embedding → ChromaDB similarity search ✅
+6. `tools/fetch_live.py` — live thread fetch + live Reddit search ✅
