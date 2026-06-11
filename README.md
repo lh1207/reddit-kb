@@ -4,8 +4,10 @@ MCP server that turns your saved Reddit content into a searchable knowledge base
 Saved posts/comments are embedded with `nomic-embed-text` (via Ollama) and stored
 in ChromaDB; tools are exposed over MCP with fastmcp.
 
-> **Status:** all four tools are implemented and the server is packaged for
-> Docker. Remaining: the first full ingest run.
+> **Status:** verified end-to-end (June 2026). All four tools smoke-tested
+> against the Docker container over MCP streamable HTTP — live Reddit fetch,
+> ingest, and semantic search all working. Ready for Claude Code or any
+> MCP-compatible client. Remaining: the first full ingest run.
 
 ## Authentication
 
@@ -66,9 +68,12 @@ docker compose -f docker/docker-compose.yml up --build -d
 > **Ollama caveat:** inside the container, `localhost` is the container itself,
 > so the bare-metal default `OLLAMA_BASE_URL=http://localhost:11434` will not
 > reach the Ollama instance on your host. Before starting, set
-> `OLLAMA_BASE_URL` in `.env` to your host LAN IP or Tailscale IP, e.g.
-> `http://192.168.1.x:11434`. Credentials and config arrive only via `.env` at
-> runtime — nothing is baked into the image.
+> `OLLAMA_BASE_URL` in `.env` to `http://host.docker.internal:11434`
+> (provided natively by Docker Desktop and OrbStack on macOS; OrbStack's
+> `http://host.orb.internal:11434` also works), or to your host LAN /
+> Tailscale IP on Linux. Credentials and config arrive only via `.env` at
+> runtime — nothing is baked into the image. Note that changes to `.env`
+> require recreating the container (`up -d`), not just restarting it.
 
 Ingest your saved items from inside the container:
 
@@ -86,13 +91,51 @@ docker compose -f docker/docker-compose.yml down
 The vector store is bind-mounted at `./store/chroma`, so ingested data
 persists on the host across restarts and rebuilds.
 
-## Build order
+## Connecting an MCP client
 
-Fill in the stubs in this order — each step builds on the previous:
+The container serves MCP over streamable HTTP at `http://localhost:8000/mcp`.
+Any MCP-compatible client can connect to that endpoint.
 
-1. `lib/reddit.py` — cookie-authenticated old.reddit JSON listing client ✅
-2. `lib/embeddings.py` — `embed` / `embed_batch` against the Ollama API ✅
-3. `lib/chroma.py` — persistent collection at `CHROMA_PATH` ✅
-4. `tools/ingest.py` — saved items → embeddings → ChromaDB ✅
-5. `tools/search_saved.py` — query embedding → ChromaDB similarity search ✅
-6. `tools/fetch_live.py` — live thread fetch + live Reddit search ✅
+**Claude Code:**
+
+```sh
+claude mcp add --transport http reddit-kb http://localhost:8000/mcp
+```
+
+**Generic client config** (e.g. `mcpServers` in Claude Desktop, Cursor, etc.):
+
+```json
+{
+  "mcpServers": {
+    "reddit-kb": {
+      "type": "http",
+      "url": "http://localhost:8000/mcp"
+    }
+  }
+}
+```
+
+**stdio (no Docker):** clients that spawn servers themselves can run it
+directly — `python server.py` uses stdio transport by default:
+
+```json
+{
+  "mcpServers": {
+    "reddit-kb": {
+      "command": "/path/to/reddit-kb/.venv/bin/python",
+      "args": ["/path/to/reddit-kb/server.py"]
+    }
+  }
+}
+```
+
+## Layout
+
+- `server.py` — FastMCP server; registers the four tools (stdio locally, HTTP in Docker)
+- `lib/reddit.py` — cookie-authenticated old.reddit JSON listing client
+- `lib/embeddings.py` — `embed` / `embed_batch` against the Ollama API
+- `lib/chroma.py` — persistent collection at `CHROMA_PATH`
+- `tools/ingest.py` — saved items → embeddings → ChromaDB
+- `tools/search_saved.py` — query embedding → ChromaDB similarity search
+- `tools/fetch_live.py` — live thread fetch + live Reddit search
+- `docker/` — Dockerfile + compose for the containerised HTTP server
