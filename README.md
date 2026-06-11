@@ -1,13 +1,19 @@
 # reddit-kb
 
-MCP server that turns your saved Reddit content into a searchable knowledge base.
+MCP server that turns your Reddit content into a searchable knowledge base.
 Saved posts/comments are embedded with `nomic-embed-text` (via Ollama) and stored
 in ChromaDB; tools are exposed over MCP with fastmcp.
 
-> **Status:** verified end-to-end (June 2026). All four tools smoke-tested
-> against the Docker container over MCP streamable HTTP — live Reddit fetch,
-> ingest, and semantic search all working. Ready for Claude Code or any
-> MCP-compatible client. Remaining: the first full ingest run.
+## Purpose
+
+I kept bookmarking useful Reddit comments, the kind with a real answer buried in them,
+and wanted to actually reference them later and keep them intact. Reddit's saved list
+is basically a junk drawer: no search, no tags, and posts can get edited or deleted
+out from under you.
+
+This pulls that content into a local index you control, so a vague memory like
+"that thread about Proxmox ghost nodes" can turn into an actual search instead of a
+lost cause.
 
 ## Authentication
 
