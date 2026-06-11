@@ -1,0 +1,11 @@
+# Never bake credentials into the image; they arrive via compose env_file.
+.env
+
+# The vector store is a runtime volume, not image content.
+store/chroma
+
+.git
+.venv
+__pycache__
+*.pyc
+.claude

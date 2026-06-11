@@ -1,24 +1,30 @@
-# Skeleton compose file: reddit-kb MCP server + Ollama embedding backend
+# reddit-kb MCP server. Run from the repo root:
+#   docker compose -f docker/docker-compose.yml up --build -d
+#
+# IMPORTANT — Ollama reachability:
+# Inside the container, `localhost` is the container itself, NOT your machine.
+# If OLLAMA_BASE_URL in .env points at http://localhost:11434 (the bare-metal
+# default), embedding calls will fail. Before running, set OLLAMA_BASE_URL in
+# .env to an address the container can reach, e.g. your host LAN IP
+# (http://192.168.1.x:11434) or Tailscale IP.
 services:
   reddit-kb:
     build:
+      # Relative to this file, so the build context is the repo root.
       context: ..
       dockerfile: docker/Dockerfile
+    # All config (Reddit cookie, Ollama URL, Chroma path, embed model) comes
+    # from .env at runtime; nothing is baked into the image.
     env_file:
       - ../.env
-    environment:
-      OLLAMA_BASE_URL: http://ollama:11434
-    volumes:
-      - ../store/chroma:/app/store/chroma
-    depends_on:
-      - ollama
-
-  ollama:
-    image: ollama/ollama
     ports:
-      - "11434:11434"
+      - "8000:8000"
     volumes:
-      - ollama-models:/root/.ollama
-
-volumes:
-  ollama-models:
+      # Persistent vector store: survives container restarts and rebuilds.
+      - ../store/chroma:/app/store/chroma
+    restart: unless-stopped
+    # Linux convenience: uncomment to make `host.docker.internal` resolve to
+    # the host, then set OLLAMA_BASE_URL=http://host.docker.internal:11434.
+    # (Docker Desktop / OrbStack on macOS provide this hostname natively.)
+    # extra_hosts:
+    #   - "host.docker.internal:host-gateway"
