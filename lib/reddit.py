@@ -1,23 +1,26 @@
-"""Reddit client factory backed by PRAW."""
+"""Reddit access via the logged-in old.reddit JSON listing (session cookie auth)."""
 
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    import praw
+import time
+from collections.abc import Iterator
 
 _REQUIRED_VARS = (
-    "REDDIT_CLIENT_ID",
-    "REDDIT_CLIENT_SECRET",
     "REDDIT_USERNAME",
-    "REDDIT_PASSWORD",
+    "REDDIT_SESSION_COOKIE",
+    "REDDIT_USER_AGENT",
 )
 
+_BASE_URL = "https://old.reddit.com"
+_TIMEOUT = 30
+_RETRY_DELAY = 5
+_PAGE_SIZE = 100
+_MAX_PAGES = 50
 
-def get_reddit_client() -> praw.Reddit:
-    """Build an authenticated praw.Reddit instance (script app / password flow) from REDDIT_* environment variables. Loads .env first; no network call is made."""
+
+def fetch_json(path: str, params: dict | None = None) -> dict:
+    """GET https://old.reddit.com{path} as the logged-in user and return parsed JSON. Authenticates with the reddit_session cookie from REDDIT_SESSION_COOKIE; retries once on failure."""
     from dotenv import load_dotenv
 
     load_dotenv()
@@ -28,18 +31,66 @@ def get_reddit_client() -> praw.Reddit:
             "Missing required environment variables: " + ", ".join(missing)
         )
 
-    username = os.environ["REDDIT_USERNAME"]
-    user_agent = os.environ.get(
-        "REDDIT_USER_AGENT", f"reddit-kb/0.1 by u/{username}"
-    )
+    import requests
 
-    import praw
+    url = _BASE_URL + path
+    merged_params = {**(params or {}), "raw_json": 1}
+    headers = {
+        "Cookie": f"reddit_session={os.environ['REDDIT_SESSION_COOKIE']}",
+        "User-Agent": os.environ["REDDIT_USER_AGENT"],
+    }
 
-    return praw.Reddit(
-        client_id=os.environ["REDDIT_CLIENT_ID"],
-        client_secret=os.environ["REDDIT_CLIENT_SECRET"],
-        username=username,
-        password=os.environ["REDDIT_PASSWORD"],
-        user_agent=user_agent,
-        check_for_async=False,
-    )
+    status: int | str = "network error"
+    for attempt in range(2):
+        if attempt:
+            time.sleep(_RETRY_DELAY)
+        try:
+            response = requests.get(
+                url, params=merged_params, headers=headers, timeout=_TIMEOUT
+            )
+        except requests.RequestException:
+            # Deliberately not chained/interpolated: the request (and any
+            # exception repr) carries the session cookie.
+            status = "network error"
+            continue
+        if response.status_code == 200:
+            return response.json()
+        status = response.status_code
+
+    raise RuntimeError(f"Reddit request failed ({status}) for {path}")
+
+
+def get_saved_items(limit: int | None = None) -> Iterator[dict]:
+    """Yield the user's saved items (raw {"kind", "data"} children) from /user/<REDDIT_USERNAME>/saved.json, newest first, paging until exhausted or `limit` items."""
+    from dotenv import load_dotenv
+
+    load_dotenv()
+
+    # Empty username falls through to fetch_json's missing-vars error.
+    username = os.environ.get("REDDIT_USERNAME", "")
+    yielded = 0
+    after: str | None = None
+
+    for page in range(_MAX_PAGES):
+        if page:
+            time.sleep(1)
+
+        params: dict = {"limit": _PAGE_SIZE}
+        if after:
+            params["after"] = after
+
+        listing = fetch_json(f"/user/{username}/saved.json", params)
+
+        children = listing.get("data", {}).get("children")
+        if listing.get("kind") != "Listing" or children is None:
+            raise RuntimeError("session cookie invalid or expired")
+
+        for child in children:
+            yield child
+            yielded += 1
+            if limit is not None and yielded >= limit:
+                return
+
+        after = listing["data"].get("after")
+        if not after:
+            return

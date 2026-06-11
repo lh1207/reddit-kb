@@ -1,5 +1,4 @@
 fastmcp
-praw
 chromadb
 ollama
 python-dotenv

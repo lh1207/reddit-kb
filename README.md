@@ -2,10 +2,22 @@
 
 MCP server that turns your saved Reddit content into a searchable knowledge base.
 Saved posts/comments are embedded with `nomic-embed-text` (via Ollama) and stored
-in ChromaDB; tools are exposed over MCP with fastmcp. Live thread fetching and
-Reddit search are also available via PRAW.
+in ChromaDB; tools are exposed over MCP with fastmcp.
 
-> **Status:** wireframe. All tools are registered but raise `NotImplementedError`.
+> **Status:** `ingest_saved` is implemented; `search_saved`, `fetch_reddit_thread`,
+> and `search_reddit` are registered but still raise `NotImplementedError`.
+
+## Authentication
+
+Reddit closed self-service API access in November 2025, so PRAW/OAuth is no
+longer an option. Instead, reddit-kb reads the logged-in old.reddit JSON
+listing (`old.reddit.com/user/<username>/saved.json`) authenticated with your
+browser's `reddit_session` cookie. The cookie lives only in `.env` (gitignored)
+and is never logged.
+
+The saved listing is capped by Reddit at roughly the most recent ~1000 items.
+If you need older saves, request a [Reddit data export](https://www.reddit.com/settings/data-request)
+and backfill from the CSV it provides (not yet automated).
 
 ## Tools
 
@@ -25,8 +37,9 @@ Reddit search are also available via PRAW.
    pip install -r requirements.txt
    ```
 
-2. Copy `.env.example` to `.env` and fill in your Reddit API credentials
-   (create an app at <https://www.reddit.com/prefs/apps>).
+2. Copy `.env.example` to `.env`, set `REDDIT_USERNAME`, and paste the
+   `reddit_session` cookie value from a logged-in browser session at
+   <https://old.reddit.com> into `REDDIT_SESSION_COOKIE`.
 
 3. Pull the embedding model in Ollama:
 
@@ -46,9 +59,9 @@ Reddit search are also available via PRAW.
 
 Fill in the stubs in this order — each step builds on the previous:
 
-1. `lib/reddit.py` — authenticated PRAW client from env vars
-2. `lib/embeddings.py` — `embed` / `embed_batch` against the Ollama API
-3. `lib/chroma.py` — persistent collection at `CHROMA_PATH`
-4. `tools/ingest.py` — saved items → embeddings → ChromaDB
+1. `lib/reddit.py` — cookie-authenticated old.reddit JSON listing client ✅
+2. `lib/embeddings.py` — `embed` / `embed_batch` against the Ollama API ✅
+3. `lib/chroma.py` — persistent collection at `CHROMA_PATH` ✅
+4. `tools/ingest.py` — saved items → embeddings → ChromaDB ✅
 5. `tools/search_saved.py` — query embedding → ChromaDB similarity search
 6. `tools/fetch_live.py` — live thread fetch + live Reddit search
