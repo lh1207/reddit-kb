@@ -5,8 +5,9 @@
 # Inside the container, `localhost` is the container itself, NOT your machine.
 # If OLLAMA_BASE_URL in .env points at http://localhost:11434 (the bare-metal
 # default), embedding calls will fail. Before running, set OLLAMA_BASE_URL in
-# .env to an address the container can reach, e.g. your host LAN IP
-# (http://192.168.1.x:11434) or Tailscale IP.
+# .env to an address the container can reach: http://host.docker.internal:11434
+# on Docker Desktop / OrbStack (macOS), or your host LAN / Tailscale IP on
+# Linux. Changes to .env need a container recreate (`up -d`), not a restart.
 services:
   reddit-kb:
     build:
